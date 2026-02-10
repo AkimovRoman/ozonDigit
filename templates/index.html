@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Дашборд — OzonDigit{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Дашборд</h1>
+
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="text-muted">Продажи</div>
+                <div class="fs-2 fw-bold">124 000 ₽</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="text-muted">Заказы</div>
+                <div class="fs-2 fw-bold">312</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="text-muted">Маржа</div>
+                <div class="fs-2 fw-bold">18.4%</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,928 @@
+{% extends "base.html" %}
+{% block title %}РНП — OzonDigit{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="/static/css/rnp.css">
+
+<!-- AG Grid Community (CDN) -->
+<link rel="stylesheet" href="https://unpkg.com/ag-grid-community/styles/ag-grid.css">
+<link rel="stylesheet" href="https://unpkg.com/ag-grid-community/styles/ag-theme-alpine.css">
+<script src="https://unpkg.com/ag-grid-community/dist/ag-grid-community.min.noStyle.js"></script>
+
+<!-- Flatpickr (CDN) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ru.js"></script>
+
+{% if not active_product %}
+  <div class="card shadow-sm">
+    <div class="card-body text-muted">Нет выбранного товара.</div>
+  </div>
+
+{% elif not rnp_view %}
+  <div class="rnp-topbar mb-2">
+    <div class="rnp-topbar-left">
+      <button class="btn btn-sm btn-outline-secondary rnp-range-btn"
+              type="button"
+              id="dateRangeBtn">
+        {{ date_range_label }}
+      </button>
+
+      <!-- якорь-инпут для flatpickr (скрытый) -->
+      <input type="text" id="dateRangePicker" class="rnp-date-anchor" aria-hidden="true" tabindex="-1">
+
+      <!-- форма, которую сабмитим автоматически -->
+      <form method="post" action="/rnp/date-range" id="dateRangeForm" class="d-none">
+        <input type="hidden" name="date_from" id="dateFromIso" value="{{ date_from_iso }}">
+        <input type="hidden" name="date_to"   id="dateToIso"   value="{{ date_to_iso }}">
+      </form>
+    </div>
+
+    <div class="rnp-topbar-center">
+      <div class="rnp-product-pill"
+           role="button"
+           data-bs-toggle="modal"
+           data-bs-target="#productSelectModal"
+           title="{{ (active_product.offer_id or active_product.product_id) ~ ': ' ~ (active_product.name or '') }}">
+        <span class="rnp-product-offer">{{ active_product.offer_id or active_product.product_id }}</span><span class="rnp-product-sep">:</span>
+        <span class="rnp-product-name">{{ active_product.name or "" }}</span>
+      </div>
+    </div>
+
+    <div class="rnp-topbar-right">
+      <!-- ✅ СДЕЛАЛИ АКТИВНОЙ -->
+      <button id="btnImportYesterday" class="btn btn-sm btn-outline-secondary" type="button">
+        Импорт данных
+      </button>
+      <!-- пока не трогаем -->
+      <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Импорт данных по дате</button>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body text-muted">Нет данных в БД по этому товару.</div>
+  </div>
+
+{% else %}
+
+  <div class="rnp-topbar mb-2">
+    <div class="rnp-topbar-left">
+      <button class="btn btn-sm btn-outline-secondary rnp-range-btn"
+              type="button"
+              id="dateRangeBtn">
+        {{ date_range_label }}
+      </button>
+
+      <!-- якорь-инпут для flatpickr (скрытый) -->
+      <input type="text" id="dateRangePicker" class="rnp-date-anchor" aria-hidden="true" tabindex="-1">
+
+      <!-- форма, которую сабмитим автоматически -->
+      <form method="post" action="/rnp/date-range" id="dateRangeForm" class="d-none">
+        <input type="hidden" name="date_from" id="dateFromIso" value="{{ date_from_iso }}">
+        <input type="hidden" name="date_to"   id="dateToIso"   value="{{ date_to_iso }}">
+      </form>
+    </div>
+
+    <div class="rnp-topbar-center">
+      <div class="rnp-product-pill"
+           role="button"
+           data-bs-toggle="modal"
+           data-bs-target="#productSelectModal"
+           title="{{ (active_product.offer_id or active_product.product_id) ~ ': ' ~ (active_product.name or '') }}">
+        <span class="rnp-product-offer">{{ active_product.offer_id or active_product.product_id }}</span><span class="rnp-product-sep">:</span>
+        <span class="rnp-product-name">{{ active_product.name or "" }}</span>
+      </div>
+    </div>
+
+    <div class="rnp-topbar-right">
+      <!-- ✅ СДЕЛАЛИ АКТИВНОЙ -->
+      <button id="btnImportYesterday" class="btn btn-sm btn-outline-secondary" type="button">
+        Импорт данных
+      </button>
+      <!-- пока не трогаем -->
+      <button class="btn btn-sm btn-outline-secondary" type="button" disabled>Импорт данных по дате</button>
+    </div>
+  </div>
+
+  <div class="rnp-breakout">
+    <div class="rnp-grid-card rnp-grid-card--flat rnp-grid-wrap">
+      <div id="rnpCorner" class="rnp-corner">
+        <div class="rnp-corner-row">
+          <span class="rnp-corner-label">Шрифт</span>
+          <button type="button" class="rnp-corner-btn" id="fontMinus">−</button>
+          <span class="rnp-corner-val" id="fontVal">10px</span>
+          <button type="button" class="rnp-corner-btn" id="fontPlus">+</button>
+        </div>
+
+        <div class="rnp-corner-row">
+          <span class="rnp-corner-label">Толщина</span>
+          <button type="button" class="rnp-corner-btn" id="wLight">Light</button>
+          <button type="button" class="rnp-corner-btn" id="wRegular">Regular</button>
+          <button type="button" class="rnp-corner-btn" id="wBold">Bold</button>
+        </div>
+      </div>
+
+      <div id="rnpGrid" class="ag-theme-alpine rnp-ag rnp-ag--sheets"></div>
+    </div>
+  </div>
+
+  <script>
+    document.documentElement.classList.add("rnp-no-page-scroll");
+    document.body.classList.add("rnp-no-page-scroll");
+
+    const rnpDates = {{ rnp_view["dates"] | tojson }};
+    const rnpRows  = {{ rnp_view["rows"]  | tojson }};
+
+    const initialMetricWidth = {{ metric_width | default(260) }};
+    const initialFontSize    = {{ font_size | default(10) }};
+    const initialFontWeight  = {{ font_weight | default(400) }};
+
+    function fmtValue(v, fmt){
+      if (v === null || v === undefined) return "";
+      if (fmt === "raw") return String(v);
+
+      if (fmt === "money") {
+        const n = Number(v);
+        if (Number.isNaN(n)) return String(v);
+        return n.toLocaleString("ru-RU", {maximumFractionDigits: 0}) + " ₽";
+      }
+      if (fmt === "int") {
+        const n = Number(v);
+        if (Number.isNaN(n)) return String(v);
+        return Math.trunc(n).toLocaleString("ru-RU");
+      }
+      if (fmt === "num") {
+        const n = Number(v);
+        if (Number.isNaN(n)) return String(v);
+        return n.toLocaleString("ru-RU", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      }
+      if (fmt === "pct") {
+        const n = Number(v);
+        if (Number.isNaN(n)) return String(v);
+        return n.toLocaleString("ru-RU", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      }
+      return String(v);
+    }
+
+    function parseByFmt(fmt, text){
+      let s = String(text ?? "").trim();
+      if (!s) return null;
+
+      // убрать пробелы и символы
+      s = s.replace(/\s+/g, "").replace(/[₽%]/g, "");
+
+      // запятая -> точка
+      s = s.replace(",", ".");
+
+      // число?
+      const n = Number(s);
+      if (Number.isFinite(n)) return n;
+
+      // иначе строка
+      return String(text);
+    }
+
+    function makeMetricRow(r){
+      const obj = { metric: r.label, fmt: r.fmt, block_css: r.block_css, __isSection: false };
+      for (let i = 0; i < rnpDates.length; i++) {
+        obj["d_" + rnpDates[i].iso] = (r.values && r.values.length > i) ? r.values[i] : null;
+      }
+      return obj;
+    }
+
+    const rowData = [];
+    let currentBlock = null;
+    for (let i = 0; i < rnpRows.length; i++) {
+      const r = rnpRows[i];
+      if (r.block !== currentBlock) {
+        currentBlock = r.block;
+        rowData.push({ __isSection: true, title: currentBlock, block_css: r.block_css || "" });
+      }
+      rowData.push(makeMetricRow(r));
+    }
+
+    let fontSize = Number(initialFontSize || 10);
+    let fontWeight = Number(initialFontWeight || 400);
+
+    let saveTimer = null;
+    function postPrefs(payload){
+      const fd = new FormData();
+      Object.keys(payload).forEach(k => fd.append(k, String(payload[k])));
+      fetch("/rnp/prefs", { method: "POST", body: fd }).catch(() => {});
+    }
+    function saveFontPrefs(){
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => postPrefs({ font_size: fontSize, font_weight: fontWeight }), 200);
+    }
+    function saveMetricWidth(width){
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => postPrefs({ metric_width: width }), 250);
+    }
+
+    function sectionRowRenderer(params){
+      const d = params.data || {};
+      const div = document.createElement("div");
+      div.className = "rnp-section-row " + (d.block_css || "");
+      div.innerHTML = `<span class="rnp-section-title">${d.title || ""}</span>`;
+      return div;
+    }
+
+    const dateCols = rnpDates.map(d => ({
+      headerName: d.label,
+      field: "d_" + d.iso,
+      width: 104,
+      minWidth: 96,
+      type: "rightAligned",
+      headerClass: "rnp-head rnp-head--right",
+      cellClass: "rnp-val rnp-val--right",
+
+      // ✅ редактируем только НЕ секции
+      editable: (p) => !(p.data && p.data.__isSection),
+
+      // ✅ парсим ввод (в UI)
+      valueParser: (p) => {
+        if (p.data && p.data.__isSection) return p.oldValue;
+        const fmt = (p.data && p.data.fmt) ? p.data.fmt : "raw";
+        if (fmt === "raw") return String(p.newValue ?? "");
+        return parseByFmt(fmt, p.newValue);
+      },
+
+      // ✅ красиво отображаем (как было)
+      valueFormatter: (p) => {
+        if (p.data && p.data.__isSection) return "";
+        return fmtValue(p.value, (p.data && p.data.fmt) ? p.data.fmt : "raw");
+      },
+
+      resizable: false,
+      suppressMovable: true,
+    }));
+
+
+    const metricColDef = {
+      headerName: "",
+      field: "metric",
+      pinned: "left",
+      width: initialMetricWidth || 260,
+      minWidth: 160,
+      maxWidth: 520,
+      cellClass: "rnp-metric",
+      headerClass: "rnp-head rnp-head--blank",
+      valueGetter: (p) => (p.data && !p.data.__isSection) ? p.data.metric : "",
+      resizable: true,
+      suppressMovable: true,
+    };
+
+    const columnDefs = [
+      metricColDef,
+      { headerName: "Дата", headerClass: "rnp-head rnp-head--date", children: dateCols }
+    ];
+
+    function calcRowHeight(fs){ return Math.max(20, Math.round(fs * 2.2)); }
+    function calcHeaderHeight(fs){ return Math.max(22, Math.round(fs * 2.3)); }
+
+    function applyFontToGrid(api, gridDiv){
+      gridDiv.style.setProperty("--rnp-font-size", fontSize + "px");
+      gridDiv.style.setProperty("--rnp-font-weight", String(fontWeight));
+      const rh = calcRowHeight(fontSize);
+      const hh = calcHeaderHeight(fontSize);
+      try { api.setHeaderHeight(hh); } catch(e){}
+      try { api.setGroupHeaderHeight(hh); } catch(e){}
+      try { api.setGridOption("rowHeight", rh); } catch(e){}
+      try { api.resetRowHeights(); } catch(e){}
+      try { api.doLayout(); } catch(e){}
+    }
+
+    function gridHeightPx(){
+      const el = document.getElementById("rnpGrid");
+      const top = el.getBoundingClientRect().top;
+      const h = window.innerHeight - top - 8;
+      return Math.max(h, 320);
+    }
+
+    const gridOptions = {
+      columnDefs,
+      rowData,
+
+      // ✅ поведение “как таблица”
+      singleClickEdit: true,
+      stopEditingWhenCellsLoseFocus: true,
+      enterNavigatesVertically: true,
+      enterNavigatesVerticallyAfterEdit: true,
+
+      // ✅ чтобы можно было выделять текст мышью
+      enableCellTextSelection: true,
+      ensureDomOrder: true,
+
+      suppressClipboardPaste: false,
+      suppressClipboardApi: false,
+
+      // ✅ как таблица
+      undoRedoCellEditing: true,           // undo/redo
+      undoRedoCellEditingLimit: 50,
+
+      // ✅ копировать/вставлять
+      enableCellTextSelection: true,       // чтобы можно было выделять текст мышью
+      ensureDomOrder: true,                // стабильный порядок DOM (лучше для копирования)
+      suppressCopyRowsToClipboard: true,   // копируем именно диапазон, не "всю строку"
+
+      // ✅ редактирование
+      singleClickEdit: false,              // редактирование по double-click/Enter (как обычно)
+      stopEditingWhenCellsLoseFocus: true, // закончили редактирование -> фиксим значение в rowData
+
+      // ✅ выбор строк
+      suppressRowClickSelection: true,
+      rowSelection: "multiple",
+
+      rowHeight: calcRowHeight(fontSize),
+      headerHeight: calcHeaderHeight(fontSize),
+      groupHeaderHeight: calcHeaderHeight(fontSize),
+      animateRows: false,
+
+      // ⚠️ ВАЖНО: у тебя было suppressCellFocus: true — это мешает "табличности"
+      suppressCellFocus: false,
+
+      suppressHorizontalScroll: false,
+      isRowSelectable: (p) => !(p.data && p.data.__isSection),
+
+      isFullWidthRow: (params) => !!(params.rowNode && params.rowNode.data && params.rowNode.data.__isSection),
+      fullWidthCellRenderer: sectionRowRenderer,
+      getRowHeight: (params) => (params.data && params.data.__isSection)
+        ? Math.max(24, Math.round(fontSize * 2.4))
+        : calcRowHeight(fontSize),
+
+      getRowClass: (params) => {
+        if (params.data && params.data.__isSection) return "rnp-section " + (params.data.block_css || "");
+        const cls = [];
+        if (params.data && params.data.block_css) cls.push(params.data.block_css);
+        return cls.join(" ");
+      },
+
+      defaultColDef: {
+        sortable: false,
+        filter: false,
+        resizable: false,
+
+        // ✅ базовая редактируемость (конкретно ограничим ниже)
+        editable: (p) => !(p.data && p.data.__isSection) && p.colDef.field !== "metric",
+      },
+
+      onColumnResized: (event) => {
+        if (!event.finished) return;
+        const colId = event.column && event.column.getColId ? event.column.getColId() : "";
+        if (colId !== "metric") return;
+        const w = event.column.getActualWidth();
+        if (!w) return;
+        syncCornerSize(w);
+        saveMetricWidth(w);
+      },
+    };
+
+    const gridDiv = document.getElementById("rnpGrid");
+    gridDiv.style.height = gridHeightPx() + "px";
+    gridDiv.style.setProperty("--rnp-font-size", fontSize + "px");
+    gridDiv.style.setProperty("--rnp-font-weight", String(fontWeight));
+
+    const api = agGrid.createGrid(gridDiv, gridOptions);
+
+    async function copyFocusedCell(){
+      const fc = api.getFocusedCell?.();
+      if (!fc) return;
+
+      const rowNode = api.getDisplayedRowAtIndex(fc.rowIndex);
+      if (!rowNode) return;
+
+      const colId = fc.column.getColId();
+      const v = rowNode.data ? rowNode.data[colId] : null;
+      const text = (v === null || v === undefined) ? "" : String(v);
+
+      try { await navigator.clipboard.writeText(text); } catch(e) {}
+    }
+
+    async function pasteToFocusedCell(){
+      const fc = api.getFocusedCell?.();
+      if (!fc) return;
+
+      const rowNode = api.getDisplayedRowAtIndex(fc.rowIndex);
+      if (!rowNode) return;
+
+      // секции не редактируем
+      if (rowNode.data && rowNode.data.__isSection) return;
+
+      const colId = fc.column.getColId();
+
+      let text = "";
+      try { text = await navigator.clipboard.readText(); } catch(e) { return; }
+
+      const fmt = (rowNode.data && rowNode.data.fmt) ? rowNode.data.fmt : "raw";
+      const parsed = (fmt === "raw") ? String(text ?? "") : parseByFmt(fmt, text);
+
+      // ✅ меняем только в гриде (в памяти)
+      rowNode.setDataValue(colId, parsed);
+    }
+
+    // Ctrl+C / Ctrl+V по фокусной ячейке
+    gridDiv.addEventListener("keydown", (e) => {
+      const isMac = navigator.platform.toUpperCase().includes("MAC");
+      const mod = isMac ? e.metaKey : e.ctrlKey;
+      if (!mod) return;
+
+      const key = (e.key || "").toLowerCase();
+      if (key === "c") { e.preventDefault(); copyFocusedCell(); }
+      if (key === "v") { e.preventDefault(); pasteToFocusedCell(); }
+    });
+
+    const corner = document.getElementById("rnpCorner");
+
+    function getMetricActualWidth(){
+      try {
+        const c = api.getColumn("metric");
+        if (c && c.getActualWidth) return c.getActualWidth();
+      } catch(e){}
+      return metricColDef.width || 260;
+    }
+
+    function syncCornerSize(metricWidth){
+      const hh = calcHeaderHeight(fontSize);
+      const cornerH = hh + hh;
+      corner.style.height = cornerH + "px";
+      corner.style.width = (metricWidth || metricColDef.width || 260) + "px";
+    }
+
+    const fontVal = document.getElementById("fontVal");
+    const btnMinus = document.getElementById("fontMinus");
+    const btnPlus  = document.getElementById("fontPlus");
+    const wLight   = document.getElementById("wLight");
+    const wRegular = document.getElementById("wRegular");
+    const wBold    = document.getElementById("wBold");
+
+    function refreshUI(){
+      fontVal.textContent = fontSize + "px";
+      [wLight, wRegular, wBold].forEach(b => b.classList.remove("is-active"));
+      if (fontWeight <= 300) wLight.classList.add("is-active");
+      else if (fontWeight >= 600) wBold.classList.add("is-active");
+      else wRegular.classList.add("is-active");
+    }
+
+    function setFontSize(next){
+      fontSize = Math.max(8, Math.min(16, Number(next) || 10));
+      refreshUI();
+      applyFontToGrid(api, gridDiv);
+      syncCornerSize(getMetricActualWidth());
+      saveFontPrefs();
+    }
+
+    function setFontWeight(next){
+      fontWeight = Number(next) || 400;
+      refreshUI();
+      applyFontToGrid(api, gridDiv);
+      saveFontPrefs();
+    }
+
+    btnMinus.addEventListener("click", () => setFontSize(fontSize - 1));
+    btnPlus.addEventListener("click",  () => setFontSize(fontSize + 1));
+    wLight.addEventListener("click",   () => setFontWeight(300));
+    wRegular.addEventListener("click", () => setFontWeight(400));
+    wBold.addEventListener("click",    () => setFontWeight(600));
+
+    requestAnimationFrame(() => {
+      syncCornerSize(getMetricActualWidth());
+      refreshUI();
+      applyFontToGrid(api, gridDiv);
+      try { api.doLayout(); } catch(e){}
+    });
+
+    window.addEventListener("resize", () => {
+      gridDiv.style.height = gridHeightPx() + "px";
+      syncCornerSize(getMetricActualWidth());
+      try { api.doLayout(); } catch(e){}
+    });
+  </script>
+
+{% endif %}
+
+<!-- Modal: список товаров -->
+<div class="modal fade" id="productSelectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title fw-semibold">Выбор товара</div>
+          <div class="text-muted small">Кликни по товару — он станет активным</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+
+      <div class="modal-body">
+        <input id="productSearch" type="text" class="form-control"
+               placeholder="Поиск по названию / offer_id / product_id / sku">
+
+        <div class="list-group mt-3" id="productList">
+          {% for p in products %}
+            <form method="post" action="/switch-product" class="list-group-item list-group-item-action p-0">
+              <input type="hidden" name="product_id" value="{{ p.product_id }}">
+              <button type="submit"
+                      class="btn w-100 text-start px-3 py-2 border-0 bg-transparent">
+                <div class="d-flex justify-content-between align-items-start gap-3">
+                  <div class="fw-semibold">
+                    {{ p.offer_id or p.product_id }}: {{ p.name or "" }}
+                  </div>
+                  {% if active_product and p.product_id == active_product.product_id %}
+                    <span class="badge text-bg-dark">активный</span>
+                  {% endif %}
+                </div>
+                <div class="text-muted small">
+                  product_id: {{ p.product_id }}
+                  {% if p.sku %} · sku: {{ p.sku }}{% endif %}
+                  {% if p.offer_id %} · offer_id: {{ p.offer_id }}{% endif %}
+                </div>
+              </button>
+            </form>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Закрыть</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ Modal: Импорт данных (2 файла) -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Импорт данных</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="text-muted small mb-3">
+          Загрузите 2 файла:
+          <ul class="mb-0">
+            <li><b>Отчёт аналитики продаж</b> (тот, который уже работал)</li>
+            <li><b>Отчёт продаж товара</b> (новый файл, который мы чиним)</li>
+          </ul>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="rnp-drop" id="dropPromo">
+              <div class="rnp-drop-title">1) Отчёт аналитики продаж</div>
+              <div class="rnp-drop-sub">Перетащите файл сюда или нажмите «Выбрать»</div>
+              <div class="rnp-drop-file" id="promoName">Файл не выбран</div>
+              <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnPickPromo">Выбрать</button>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="rnp-drop" id="dropSales">
+              <div class="rnp-drop-title">2) Отчёт продаж товара</div>
+              <div class="rnp-drop-sub">Перетащите файл сюда или нажмите «Выбрать»</div>
+              <div class="rnp-drop-file" id="salesName">Файл не выбран</div>
+              <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnPickSales">Выбрать</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="importStatus" class="small text-muted mt-3"></div>
+        <div id="importResult" class="mt-2"></div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" id="btnCloseImport">Закрыть</button>
+        <button type="button" class="btn btn-dark btn-sm" id="btnImportNext" disabled>Далее</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .rnp-drop{
+    border: 1px dashed rgba(0,0,0,.25);
+    border-radius: 10px;
+    padding: 14px;
+    background: #fff;
+  }
+  .rnp-drop.is-over{
+    border-color: rgba(0,0,0,.6);
+    background: rgba(0,0,0,.02);
+  }
+  .rnp-drop-title{ font-weight: 600; }
+  .rnp-drop-sub{ font-size: 12px; color: #6c757d; margin-top: 2px; }
+  .rnp-drop-file{ font-size: 12px; margin-top: 10px; }
+</style>
+
+<script>
+  // поиск по товарам
+  const search = document.getElementById("productSearch");
+  const list = document.getElementById("productList");
+  function normalize(s) { return (s || "").toLowerCase(); }
+
+  search?.addEventListener("input", () => {
+    const q = normalize(search.value);
+    const items = list.querySelectorAll("form.list-group-item");
+    items.forEach(form => {
+      const text = normalize(form.innerText);
+      form.style.display = text.includes(q) ? "" : "none";
+    });
+  });
+
+  // ✅ ИМПОРТ ДАННЫХ (вчера): кнопка -> POST /api/rnp/import-yesterday -> вывод в модалку
+  (function initImportYesterday(){
+    const btn = document.getElementById("btnImportYesterday");
+    if (!btn) return;
+
+    const modalEl  = document.getElementById("importModal");
+    const statusEl = document.getElementById("importStatus");
+    const resEl    = document.getElementById("importResult");
+
+    const dropPromo = document.getElementById("dropPromo");
+    const dropSales = document.getElementById("dropSales");
+    const promoName = document.getElementById("promoName");
+    const salesName = document.getElementById("salesName");
+
+    const btnPickPromo = document.getElementById("btnPickPromo");
+    const btnPickSales = document.getElementById("btnPickSales");
+    const btnNext      = document.getElementById("btnImportNext");
+
+    const btnClose     = document.getElementById("btnCloseImport");
+    let importDone = false;
+    let importModalInstance = null;
+
+    function setNextAsSubmit(){
+      importDone = false;
+      btnNext.textContent = "Далее";
+      btnNext.classList.remove("btn-success");
+      btnNext.classList.add("btn-dark");
+      btnPickPromo.disabled = false;
+      btnPickSales.disabled = false;
+      dropPromo.style.pointerEvents = "";
+      dropSales.style.pointerEvents = "";
+    }
+
+    function setNextAsDone(){
+      importDone = true;
+      btnNext.textContent = "Готово";
+      btnNext.classList.remove("btn-dark");
+      btnNext.classList.add("btn-success");
+      btnNext.disabled = false; // чтобы можно было нажать "Готово"
+      btnPickPromo.disabled = true;
+      btnPickSales.disabled = true;
+      dropPromo.style.pointerEvents = "none";
+      dropSales.style.pointerEvents = "none";
+    }
+
+    function closeImportModal(){
+      // если у тебя bootstrap 5
+      const inst = bootstrap.Modal.getInstance(modalEl) || importModalInstance;
+      if (inst) inst.hide();
+    }
+
+    function refreshRnpGridAfterDone(){
+      // ✅ обновляем страницу ТОЛЬКО по нажатию "Готово"
+      // чтобы подтянуть новые данные из БД и пересобрать таблицу
+      window.location.reload();
+    }
+
+    // два скрытых input
+    const inPromo = document.createElement("input");
+    inPromo.type = "file";
+    inPromo.accept = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    inPromo.style.display = "none";
+    document.body.appendChild(inPromo);
+
+    const inSales = document.createElement("input");
+    inSales.type = "file";
+    inSales.accept = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    inSales.style.display = "none";
+    document.body.appendChild(inSales);
+
+    let filePromo = null;
+    let fileSales = null;
+
+    function showAlert(kind, html){
+      resEl.innerHTML = `<div class="alert alert-${kind} mb-0">${html}</div>`;
+    }
+    function clearResult(){
+      resEl.innerHTML = "";
+      statusEl.textContent = "";
+    }
+    function updateUI(){
+      promoName.textContent = filePromo ? filePromo.name : "Файл не выбран";
+      salesName.textContent = fileSales ? fileSales.name : "Файл не выбран";
+      btnNext.disabled = !(filePromo && fileSales);
+    }
+
+    function bindDrop(dropEl, onFile){
+      const prevent = (e) => { e.preventDefault(); e.stopPropagation(); };
+
+      ["dragenter","dragover"].forEach(ev => dropEl.addEventListener(ev, (e)=>{
+        prevent(e);
+        dropEl.classList.add("is-over");
+      }));
+      ["dragleave","drop"].forEach(ev => dropEl.addEventListener(ev, (e)=>{
+        prevent(e);
+        dropEl.classList.remove("is-over");
+      }));
+
+      dropEl.addEventListener("drop", (e)=>{
+        const f = e.dataTransfer?.files?.[0];
+        if (!f) return;
+        onFile(f);
+      });
+    }
+
+    bindDrop(dropPromo, (f)=>{ filePromo = f; clearResult(); updateUI(); });
+    bindDrop(dropSales, (f)=>{ fileSales = f; clearResult(); updateUI(); });
+
+    btnPickPromo.addEventListener("click", ()=>{
+      inPromo.value = "";
+      inPromo.click();
+    });
+    btnPickSales.addEventListener("click", ()=>{
+      inSales.value = "";
+      inSales.click();
+    });
+
+    inPromo.addEventListener("change", ()=>{
+      const f = inPromo.files && inPromo.files[0];
+      if (!f) return;
+      filePromo = f;
+      clearResult();
+      updateUI();
+    });
+    inSales.addEventListener("change", ()=>{
+      const f = inSales.files && inSales.files[0];
+      if (!f) return;
+      fileSales = f;
+      clearResult();
+      updateUI();
+    });
+
+    btn.addEventListener("click", ()=>{
+      // открыть модалку и сбросить состояние
+      filePromo = null;
+      fileSales = null;
+      inPromo.value = "";
+      inSales.value = "";
+      resEl.innerHTML = "";
+      statusEl.textContent = "";
+
+      setNextAsSubmit();   // ✅ вернуть "Далее"
+      updateUI();
+
+      importModalInstance = new bootstrap.Modal(modalEl);
+      importModalInstance.show();
+    });
+
+
+    btnNext.addEventListener("click", async ()=>{
+      // ✅ если уже успешно импортнули — это кнопка "Готово"
+      if (importDone){
+        closeImportModal();
+        refreshRnpGridAfterDone();
+        return;
+      }
+
+      if (!(filePromo && fileSales)) return;
+
+      btn.disabled = true;
+      btnNext.disabled = true;
+      resEl.innerHTML = "";
+      statusEl.textContent = "Загружаю файлы и запускаю импорт…";
+
+      try{
+        const fd = new FormData();
+        fd.append("promo_report", filePromo);
+        fd.append("sales_report", fileSales);
+
+        const r = await fetch("/api/rnp/import-yesterday", {
+          method: "POST",
+          body: fd,
+        });
+
+        const data = await r.json().catch(()=> ({}));
+
+        if (!r.ok || !data.ok){
+          const err = (data && (data.error || data.message)) ? (data.error || data.message) : "Ошибка импорта";
+          statusEl.textContent = "Ошибка";
+          showAlert("danger", err);
+
+          setNextAsSubmit(); // ✅ остаётся "Далее"
+          updateUI();
+          return;
+        }
+
+        statusEl.textContent = "Готово.";
+        showAlert(
+          "success",
+          `
+            <div class="fw-semibold">${data.message || "Импорт выполнен."}</div>
+            <div class="small mt-1">
+              День API: <b>${data.day_api || "-"}</b>,
+              день ИТОГО: <b>${data.day_total || "-"}</b>,
+              кампаний в отчёте по SKU: <b>${data.total_campaigns_in_file ?? "-"}</b>
+            </div>
+          `
+        );
+
+        // ✅ превращаем кнопку "Далее" в "Готово"
+        setNextAsDone();
+
+      } catch(e){
+        statusEl.textContent = "Сетевая/неожиданная ошибка";
+        showAlert("danger", String(e));
+        setNextAsSubmit();
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  })();
+
+  // КАЛЕНДАРЬ: клик по кнопке -> сразу открываем, выбор 2 дат -> авто-сабмит
+  (function initTopbarDateRange(){
+    const btn   = document.getElementById("dateRangeBtn");
+    const input = document.getElementById("dateRangePicker");
+    const form  = document.getElementById("dateRangeForm");
+    const fromEl = document.getElementById("dateFromIso");
+    const toEl   = document.getElementById("dateToIso");
+
+    if (!btn || !input || !form || !fromEl || !toEl || typeof flatpickr === "undefined") return;
+
+    const initFrom = "{{ date_from_iso }}";
+    const initTo   = "{{ date_to_iso }}";
+
+    function todayIso(){
+      const now = new Date();
+      const off = now.getTimezoneOffset();
+      const d = new Date(now.getTime() - off * 60000);
+      return d.toISOString().slice(0, 10);
+    }
+    const today = todayIso();
+
+    const from0 = (initFrom && initTo) ? initFrom : today;
+    const to0   = (initFrom && initTo) ? initTo   : today;
+
+    function fmtRu(iso){
+      const [y,m,d] = String(iso || "").split("-");
+      return (y && m && d) ? `${d}.${m}.${y}` : "";
+    }
+    function setBtnLabel(from, to){
+      btn.textContent = (from && to) ? `${fmtRu(from)} — ${fmtRu(to)}` : "Выбрать даты";
+    }
+
+    const fp = flatpickr(input, {
+      mode: "range",
+      locale: flatpickr.l10ns.ru,
+      disableMobile: true,
+      allowInput: false,
+
+      dateFormat: "Y-m-d",
+      defaultDate: [from0, to0],
+      maxDate: today,
+
+      clickOpens: false,
+      positionElement: btn,
+
+      onReady: () => {
+        fromEl.value = from0;
+        toEl.value   = to0;
+        setBtnLabel(from0, to0);
+      },
+
+      onChange: (dates) => {
+        if (!dates || dates.length < 2) return;
+
+        const from = fp.formatDate(dates[0], "Y-m-d");
+        const to   = fp.formatDate(dates[1], "Y-m-d");
+
+        fromEl.value = from;
+        toEl.value   = to;
+
+        setBtnLabel(from, to);
+
+        setTimeout(() => {
+          form.requestSubmit ? form.requestSubmit() : form.submit();
+        }, 80);
+      }
+    });
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fp.open();
+    });
+
+    document.addEventListener("click", (e) => {
+      const cal = fp.calendarContainer;
+      if (!cal) return;
+      const t = e.target;
+      if (btn.contains(t) || cal.contains(t)) return;
+      fp.close();
+    });
+  })();
+</script>
+
+{% endblock %}

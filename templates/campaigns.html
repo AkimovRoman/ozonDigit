@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Кампании — OzonDigit{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Кампании</h1>
+
+{% if request.query_params.get('ok') == 'imported' %}
+  <div class="alert alert-success">
+    Кампании добавлены: {{ request.query_params.get('count') or "0" }} шт.
+    {% if request.query_params.get('skipped') %}
+      <div class="small text-muted mt-1">Пропущено (уже есть в БД): {{ request.query_params.get('skipped') }}</div>
+    {% endif %}
+  </div>
+{% endif %}
+{% if request.query_params.get('ok') == 'deleted' %}
+  <div class="alert alert-success">Кампания удалена.</div>
+{% endif %}
+{% if request.query_params.get('err') == 'ozon_api' %}
+  <div class="alert alert-danger">
+    Ошибка Performance API. Проверь perf_client_id / perf_client_secret у кабинета и попробуй ещё раз.
+  </div>
+{% endif %}
+
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Отслеживаемые кампании</h5>
+
+      <a class="btn btn-dark btn-sm" href="/campaigns/import">
+        Добавить рекламные кампании
+      </a>
+    </div>
+
+    <hr class="my-4">
+
+    {% if campaigns and campaigns|length > 0 %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr class="text-muted">
+              <th>campaign_id</th>
+              <th>Название</th>
+              <th>createdAt</th>
+              <th class="text-end">Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in campaigns %}
+            <tr>
+              <td class="fw-semibold">{{ c.campaign_id }}</td>
+              <td>{{ c.title or "—" }}</td>
+              <td>{{ c.ozon_created_at or "—" }}</td>
+              <td class="text-end">
+                <form method="post"
+                      action="/campaigns/{{ c.campaign_id }}/delete"
+                      class="d-inline"
+                      onsubmit="return confirm('Удалить кампанию {{ c.campaign_id }}?');">
+                  <button class="btn btn-outline-danger btn-sm">Удалить</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-muted">Пока нет добавленных кампаний в этом кабинете.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

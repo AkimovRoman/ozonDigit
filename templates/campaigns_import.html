@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% extends "base.html" %}
+{% block title %}Импорт кампаний — OzonDigit{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Импорт кампаний</h1>
+
+{% if request.query_params.get('err') == 'select_none' %}
+  <div class="alert alert-danger">Выбери хотя бы одну кампанию.</div>
+{% endif %}
+
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <div class="fw-semibold">Доступные кампании из Performance API</div>
+        <div class="text-muted small">Показаны только те, которых ещё нет в БД. Всего: {{ total }}</div>
+      </div>
+      <a class="btn btn-outline-secondary btn-sm" href="/campaigns">Назад</a>
+    </div>
+
+    <hr class="my-4">
+
+    {% if items and items|length > 0 %}
+      <form method="post" action="/campaigns/import/commit">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr class="text-muted">
+                <th style="width:42px;"></th>
+                <th>campaign_id</th>
+                <th>Название</th>
+                <th>createdAt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for it in items %}
+              <tr>
+                <td>
+                  <input class="form-check-input" type="checkbox" name="campaign_id" value="{{ it.id }}">
+                </td>
+                <td class="fw-semibold">{{ it.id }}</td>
+                <td>{{ it.title or "—" }}</td>
+                <td>{{ it.createdAt or "—" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-dark">Сохранить выбранные</button>
+          <a class="btn btn-outline-secondary" href="/campaigns">Отмена</a>
+        </div>
+      </form>
+    {% else %}
+      <div class="text-muted">Нет новых кампаний для добавления (все уже есть в БД).</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+</title>
+</head>
+<body>
+
+</body>
+</html>

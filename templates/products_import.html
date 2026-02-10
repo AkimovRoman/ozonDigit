@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Импорт товаров — OzonDigit{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Добавить товары из Ozon</h1>
+
+{% if request.query_params.get('err') == 'select_none' %}
+  <div class="alert alert-danger">Выбери хотя бы один товар.</div>
+{% endif %}
+{% if request.query_params.get('err') == 'ozon_api' %}
+  <div class="alert alert-danger">Ошибка Ozon API.</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <div class="fw-semibold">Доступные товары</div>
+        <div class="text-muted small">
+          Новых (ещё не добавленных): {{ total }}
+        </div>
+      </div>
+      <a class="btn btn-outline-secondary btn-sm" href="/products">Назад</a>
+    </div>
+
+    <hr class="my-3">
+
+    {% if items and items|length > 0 %}
+      <form method="post" action="/products/import/step2">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr class="text-muted">
+                <th style="width:40px;">
+                  <input type="checkbox" id="checkAll" />
+                </th>
+                <th>product_id</th>
+                <th>offer_id</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for it in items %}
+              <tr>
+                <td>
+                  <input class="form-check-input product-check"
+                         type="checkbox"
+                         name="product_id"
+                         value="{{ it.product_id }}">
+                </td>
+                <td class="fw-semibold">{{ it.product_id }}</td>
+                <td>{{ it.offer_id or "—" }}</td>
+                <td class="text-muted">
+                  {{ it.name or "—" }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-dark">
+            Далее → себестоимость
+          </button>
+        </div>
+      </form>
+
+      <script>
+        const checkAll = document.getElementById("checkAll");
+        const checks = () => Array.from(document.querySelectorAll(".product-check"));
+
+        checkAll.addEventListener("change", () => {
+          checks().forEach(c => c.checked = checkAll.checked);
+        });
+      </script>
+    {% else %}
+      <div class="text-muted">
+        Нет новых товаров для добавления
+        (всё уже добавлено или архивировано).
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

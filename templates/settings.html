@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block title %}Настройки — OzonDigit{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Настройки</h1>
+
+{# ===== Alerts: OK ===== #}
+{% if request.query_params.get('ok') == 'pw_changed' %}
+  <div class="alert alert-success">Пароль успешно изменён.</div>
+{% endif %}
+{% if request.query_params.get('ok') == 'ozon_added' %}
+  <div class="alert alert-success">Кабинет добавлен.</div>
+{% endif %}
+{% if request.query_params.get('ok') == 'ozon_unlinked' %}
+  <div class="alert alert-success">Кабинет отвязан от пользователя.</div>
+{% endif %}
+
+{# ===== Alerts: ERR ===== #}
+{% if request.query_params.get('err') == 'pw_current_wrong' %}
+  <div class="alert alert-danger">Текущий пароль неверный.</div>
+{% endif %}
+{% if request.query_params.get('err') == 'pw_mismatch' %}
+  <div class="alert alert-danger">Новые пароли не совпадают.</div>
+{% endif %}
+{% if request.query_params.get('err') == 'pw_too_long' %}
+  <div class="alert alert-danger">Пароль слишком длинный (ограничение bcrypt).</div>
+{% endif %}
+{% if request.query_params.get('err') == 'ozon_fields' %}
+  <div class="alert alert-danger">Заполни API данные и название кабинета.</div>
+{% endif %}
+{% if request.query_params.get('err') == 'ozon_exists_contact_owner' %}
+  <div class="alert alert-warning">
+    Такой кабинет уже существует. Попросите владельца добавить вас в кабинет.
+  </div>
+{% endif %}
+{% if request.query_params.get('err') == 'ozon_already_linked' %}
+  <div class="alert alert-info">Этот кабинет уже добавлен в ваш аккаунт.</div>
+{% endif %}
+
+<!-- =========================
+     Профиль
+========================= -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="mb-3">Профиль</h5>
+
+    <div class="row g-3">
+      <div class="col-md-4">
+        <div class="text-muted">Фамилия</div>
+        <div class="fw-semibold">{{ user.last_name }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="text-muted">Имя</div>
+        <div class="fw-semibold">{{ user.first_name }}</div>
+      </div>
+      <div class="col-md-4">
+        <div class="text-muted">Отчество</div>
+        <div class="fw-semibold">{{ user.middle_name or "—" }}</div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="text-muted">Логин (email)</div>
+        <div class="fw-semibold">{{ user.email }}</div>
+      </div>
+    </div>
+
+    <hr class="my-4">
+
+    <button class="btn btn-outline-dark"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#changePasswordBlock"
+            aria-expanded="false"
+            aria-controls="changePasswordBlock">
+      Сменить пароль
+    </button>
+
+    <div class="collapse mt-3" id="changePasswordBlock">
+      <div class="border rounded p-3 bg-light">
+        <form method="post" action="/settings/change-password">
+          <div class="mb-2">
+            <label class="form-label">Текущий пароль</label>
+            <input class="form-control" type="password" name="current_password" required>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Новый пароль</label>
+            <input class="form-control" type="password" name="new_password" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Повтори новый пароль</label>
+            <input class="form-control" type="password" name="new_password2" required>
+          </div>
+
+          <button class="btn btn-dark w-100">Изменить пароль</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- =========================
+     Кабинеты Ozon
+========================= -->
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Кабинеты Ozon</h5>
+
+      <button class="btn btn-dark btn-sm"
+              type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#addOzonBlock"
+              aria-expanded="false"
+              aria-controls="addOzonBlock">
+        Добавить кабинет
+      </button>
+    </div>
+
+    <div class="collapse mt-3" id="addOzonBlock">
+      <div class="border rounded p-3 bg-light">
+        <form method="post" action="/settings/ozon/add">
+          <div class="mb-2">
+            <label class="form-label">CLIENT_ID</label>
+            <input class="form-control" name="client_id" required>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">API_KEY (Admin)</label>
+            <input class="form-control" name="api_key" required>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">CLIENT_ID (Performance)</label>
+            <input class="form-control" name="perf_client_id" required>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">CLIENT_SECRET (Performance)</label>
+            <input class="form-control" name="perf_client_secret" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Название кабинета</label>
+            <input class="form-control" name="name" required>
+          </div>
+
+          <button class="btn btn-dark w-100">Сохранить кабинет</button>
+
+          <div class="text-muted small mt-2">
+            API ключи нигде не показываем на экране — они хранятся в базе.
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <hr class="my-4">
+
+    {% if ozon_accounts_page and ozon_accounts_page|length > 0 %}
+      <div class="list-group">
+         {% for acc in ozon_accounts_page %}
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold">{{ acc.name or "Без названия" }}</div>
+              <div class="text-muted small">CLIENT_ID: {{ acc.client_id }}</div>
+            </div>
+
+            <form method="post"
+                  action="/settings/ozon/{{ acc.id }}/unlink"
+                  class="m-0"
+                  onsubmit="return confirm('Отвязать кабинет от вашего пользователя?');">
+              <button class="btn btn-outline-danger btn-sm">Удалить</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted">Пока нет добавленных кабинетов.</div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}

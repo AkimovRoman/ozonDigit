@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Товары — OzonDigit{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Товары</h1>
+
+{% if request.query_params.get('ok') == 'imported' %}
+  <div class="alert alert-success">
+    Товары добавлены: {{ request.query_params.get('count') or "0" }} шт.
+  </div>
+{% endif %}
+{% if request.query_params.get('ok') == 'deleted' %}
+  <div class="alert alert-success">Товар удалён.</div>
+{% endif %}
+{% if request.query_params.get('err') == 'ozon_api' %}
+  <div class="alert alert-danger">Ошибка Ozon API. Проверь CLIENT_ID / API_KEY и попробуй ещё раз.</div>
+{% endif %}
+{% if request.query_params.get('err') == 'cost_negative' %}
+  <div class="alert alert-danger">Себестоимость не может быть отрицательной.</div>
+{% endif %}
+
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Отслеживаемые товары</h5>
+
+      <a class="btn btn-dark btn-sm" href="/products/import">
+        Добавить товары (из Ozon)
+      </a>
+    </div>
+
+    <hr class="my-4">
+
+    {% if products and products|length > 0 %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr class="text-muted">
+              <th>product_id</th>
+              <th>sku</th>
+              <th>offer_id</th>
+              <th>Название</th>
+              <th class="text-end">Себестоимость</th>
+              <th class="text-end">Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in products %}
+            <tr>
+              <td class="fw-semibold">{{ p.product_id }}</td>
+              <td>{{ p.sku or "—" }}</td>
+              <td>{{ p.offer_id or "—" }}</td>
+              <td>{{ p.name or "—" }}</td>
+              <td class="text-end">{{ p.cost_price_rub }}</td>
+              <td class="text-end">
+                <form method="post"
+                      action="/products/{{ p.product_id }}/delete"
+                      class="d-inline"
+                      onsubmit="return confirm('Удалить товар {{ p.product_id }}?');">
+                  <button class="btn btn-outline-danger btn-sm">Удалить</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="text-muted">Пока нет добавленных товаров в этом кабинете.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

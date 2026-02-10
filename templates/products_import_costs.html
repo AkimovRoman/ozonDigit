@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Себестоимость — OzonDigit{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Себестоимость товаров</h1>
+
+{% if request.query_params.get('err') == 'bad_cost' %}
+  <div class="alert alert-danger">Себестоимость должна быть целым числом (в рублях).</div>
+{% endif %}
+{% if request.query_params.get('err') == 'cost_negative' %}
+  <div class="alert alert-danger">Себестоимость не может быть отрицательной.</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="fw-semibold">Заполни себестоимость и сохрани</div>
+      <a class="btn btn-outline-secondary btn-sm" href="/products/import">← назад к выбору</a>
+    </div>
+
+    <hr class="my-3">
+
+    <form method="post" action="/products/import/commit">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr class="text-muted">
+              <th>product_id</th>
+              <th>offer_id</th>
+              <th style="width:220px;">Себестоимость (₽)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for it in items %}
+            <tr>
+              <td class="fw-semibold">
+                {{ it.product_id }}
+                <input type="hidden" name="product_id" value="{{ it.product_id }}">
+              </td>
+              <td>{{ it.offer_id or "—" }}</td>
+              <td>
+                <input class="form-control form-control-sm"
+                       type="number"
+                       min="0"
+                       step="1"
+                       name="cost_{{ it.product_id }}"
+                       value="0"
+                       required>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="d-flex justify-content-end">
+        <button class="btn btn-dark">Сохранить в базу</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
