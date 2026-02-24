@@ -350,3 +350,26 @@ html, body{
 .flatpickr-calendar{
   z-index: 2000;
 }
+
+.rnp-bids-status{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-right:10px;
+  padding:4px 8px;
+  border:1px solid rgba(0,0,0,.15);
+  border-radius:999px;
+  background:#fff;
+  font-size:12px;
+  line-height:1;
+}
+.rnp-bids-status__text{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+}
+.rnp-bids-status__btn{
+  padding:2px 8px;
+  line-height:1.2;
+}

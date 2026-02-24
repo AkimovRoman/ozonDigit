@@ -21,6 +21,7 @@ from app.performance_router import router as performance_router
 from app.rnp_import import router as rnp_import_router
 from app.rnp_service_big import build_rnp_big_view
 from app.campaigns_router import router as campaigns_router
+import app.rnp_import_reports_only as rnp_import_reports_only
 
 
 app = FastAPI()
@@ -167,6 +168,7 @@ app.include_router(products_router)
 app.include_router(performance_router)
 app.include_router(rnp_import_router)
 app.include_router(campaigns_router)
+app.include_router(rnp_import_reports_only.router)
 
 
 @app.post("/switch-ozon-account")

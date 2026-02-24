@@ -50,6 +50,10 @@
     </div>
 
     <div class="rnp-topbar-right">
+      <div id="bidsStatusWrap" class="rnp-bids-status" style="display:none;">
+        <span id="bidsStatusText" class="rnp-bids-status__text"></span>
+        <button id="bidsStatusAction" type="button" class="btn btn-sm btn-outline-secondary rnp-bids-status__btn" style="display:none;"></button>
+      </div>
       <!-- ✅ СДЕЛАЛИ АКТИВНОЙ -->
       <button id="btnImportYesterday" class="btn btn-sm btn-outline-secondary" type="button">
         Импорт данных
@@ -95,6 +99,10 @@
     </div>
 
     <div class="rnp-topbar-right">
+      <div id="bidsStatusWrap" class="rnp-bids-status" style="display:none;">
+        <span id="bidsStatusText" class="rnp-bids-status__text"></span>
+        <button id="bidsStatusAction" type="button" class="btn btn-sm btn-outline-secondary rnp-bids-status__btn" style="display:none;"></button>
+      </div>
       <!-- ✅ СДЕЛАЛИ АКТИВНОЙ -->
       <button id="btnImportYesterday" class="btn btn-sm btn-outline-secondary" type="button">
         Импорт данных
@@ -561,15 +569,15 @@
         <div class="text-muted small mb-3">
           Загрузите 2 файла:
           <ul class="mb-0">
-            <li><b>Отчёт аналитики продаж</b> (тот, который уже работал)</li>
-            <li><b>Отчёт продаж товара</b> (новый файл, который мы чиним)</li>
+            <li><b>Отчёт аналитики продвижения</b> (Продвижение -> Аналитика продвижения)</li>
+            <li><b>Отчёт продаж товара</b> (Аналитика -> Продажи моих товаров)</li>
           </ul>
         </div>
 
         <div class="row g-3">
           <div class="col-md-6">
             <div class="rnp-drop" id="dropPromo">
-              <div class="rnp-drop-title">1) Отчёт аналитики продаж</div>
+              <div class="rnp-drop-title">1) Отчёт аналитики продвижения</div>
               <div class="rnp-drop-sub">Перетащите файл сюда или нажмите «Выбрать»</div>
               <div class="rnp-drop-file" id="promoName">Файл не выбран</div>
               <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="btnPickPromo">Выбрать</button>
@@ -635,6 +643,9 @@
     if (!btn) return;
 
     const modalEl  = document.getElementById("importModal");
+    const bidsWrap  = document.getElementById("bidsStatusWrap");
+    const bidsText  = document.getElementById("bidsStatusText");
+    const bidsBtn   = document.getElementById("bidsStatusAction");
     const statusEl = document.getElementById("importStatus");
     const resEl    = document.getElementById("importResult");
 
@@ -650,6 +661,125 @@
     const btnClose     = document.getElementById("btnCloseImport");
     let importDone = false;
     let importModalInstance = null;
+
+    const LS_KEY_BIDS_JOB = "rnp_bids_job_id";
+      let bidsPollTimer = null;
+
+      function stopBidsPolling(){
+        if (bidsPollTimer) clearInterval(bidsPollTimer);
+        bidsPollTimer = null;
+      }
+
+      function clearBidsJob(){
+        localStorage.removeItem(LS_KEY_BIDS_JOB);
+      }
+
+      function setBidsStatus(state, payload){
+        // state: "hidden" | "pending" | "done" | "error"
+        if (!bidsWrap || !bidsText || !bidsBtn) return;
+
+        if (state === "hidden"){
+          bidsWrap.style.display = "none";
+          bidsText.innerHTML = "";
+          bidsBtn.style.display = "none";
+          bidsBtn.onclick = null;
+          return;
+        }
+
+        bidsWrap.style.display = "flex";
+        bidsBtn.style.display = "none";
+        bidsBtn.onclick = null;
+
+        if (state === "pending"){
+          bidsText.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Ставки конкурентов: получаю…`;
+          return;
+        }
+
+        if (state === "done"){
+          bidsText.innerHTML = `✅ Ставки конкурентов: получены`;
+          bidsBtn.style.display = "inline-block";
+          bidsBtn.textContent = "Обновить";
+          bidsBtn.onclick = () => {
+            clearBidsJob();
+            window.location.reload();
+          };
+          return;
+        }
+
+        if (state === "error"){
+          bidsText.innerHTML = `⚠️ Ставки конкурентов: ошибка`;
+          bidsBtn.style.display = "inline-block";
+          bidsBtn.textContent = "Показать";
+          bidsBtn.onclick = () => {
+            const msg = (payload && payload.error) ? payload.error : "Неизвестная ошибка";
+            showAlert("danger", msg); // использует твою функцию showAlert внутри модалки
+            // плашку оставляем висеть
+          };
+          return;
+        }
+      }
+
+      async function pollBidsJob(jobId){
+        try{
+          const r = await fetch(`/api/rnp/bids-job/${encodeURIComponent(jobId)}`, { method: "GET" });
+          const data = await r.json().catch(()=> ({}));
+
+          if (!r.ok || !data.ok || !data.job){
+            // job пропал/не найден
+            stopBidsPolling();
+            clearBidsJob();
+            setBidsStatus("hidden");
+            return;
+          }
+
+          const st = data.job.status;
+
+          if (st === "pending"){
+            setBidsStatus("pending");
+            return;
+          }
+
+          if (st === "done"){
+            stopBidsPolling();
+            setBidsStatus("done");
+            return;
+          }
+
+          if (st === "error"){
+            stopBidsPolling();
+            setBidsStatus("error", { error: data.job.error || "Ошибка получения ставок" });
+            return;
+          }
+
+          // неизвестный статус
+          setBidsStatus("pending");
+
+        } catch(e){
+          // сеть/временная ошибка — оставляем pending, но не роняем
+          setBidsStatus("pending");
+        }
+      }
+
+      function startBidsPolling(jobId){
+        if (!jobId) return;
+        localStorage.setItem(LS_KEY_BIDS_JOB, jobId);
+        setBidsStatus("pending");
+        stopBidsPolling();
+        // первый запрос сразу
+        pollBidsJob(jobId);
+        // дальше каждые 2.5с
+        bidsPollTimer = setInterval(() => pollBidsJob(jobId), 2500);
+      }
+
+      // при загрузке страницы — если job_id сохранён, восстановить статус
+      (function restoreBidsStatusOnLoad(){
+        const saved = localStorage.getItem(LS_KEY_BIDS_JOB);
+        if (saved){
+          startBidsPolling(saved);
+        } else {
+          setBidsStatus("hidden");
+        }
+      })();
 
     function setNextAsSubmit(){
       importDone = false;
@@ -798,7 +928,7 @@
         fd.append("promo_report", filePromo);
         fd.append("sales_report", fileSales);
 
-        const r = await fetch("/api/rnp/import-yesterday", {
+        const r = await fetch("/api/rnp/import-reports", {
           method: "POST",
           body: fd,
         });
@@ -821,15 +951,19 @@
           `
             <div class="fw-semibold">${data.message || "Импорт выполнен."}</div>
             <div class="small mt-1">
-              День API: <b>${data.day_api || "-"}</b>,
-              день ИТОГО: <b>${data.day_total || "-"}</b>,
-              кампаний в отчёте по SKU: <b>${data.total_campaigns_in_file ?? "-"}</b>
+              День отчёта: <b>${data.day_report || "-"}</b>,
+              кампаний в отчёте по SKU: <b>${data.campaigns_in_file_for_sku ?? "-"}</b>
             </div>
           `
         );
 
         // ✅ превращаем кнопку "Далее" в "Готово"
         setNextAsDone();
+
+        // ✅ запускаем статус ставок (и сохраняем job_id, чтобы пережил refresh)
+        if (data.bids_job_id){
+          startBidsPolling(data.bids_job_id);
+        }
 
       } catch(e){
         statusEl.textContent = "Сетевая/неожиданная ошибка";
